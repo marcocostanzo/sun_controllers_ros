@@ -104,8 +104,7 @@ std_srvs
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
   INCLUDE_DIRS include
-  LIBRARIES 
-    # ${PROJECT_NAME}
+  LIBRARIES ${PROJECT_NAME}
   CATKIN_DEPENDS roscpp geometry_msgs std_srvs
 #  DEPENDS system_lib
 )
@@ -122,9 +121,9 @@ include_directories(
 )
 
 ## Declare a C++ library
-# add_library(${PROJECT_NAME}
-#  src/${PROJECT_NAME}/sun_controllers_ros.cpp
-# )
+add_library(${PROJECT_NAME}
+ src/${PROJECT_NAME}/ROSWrenchController.cpp
+)
 
 ## Add cmake target dependencies of the library
 ## as an example, code may need to be generated before libraries
@@ -206,11 +205,12 @@ include_directories(
 ## Add folders to be run by python nosetests
 # catkin_add_nosetests(test)
 ####################################
-add_executable(force_controller
-  src/force_controller_node.cpp
+add_executable(wrench_controller
+  src/wrench_controller_node.cpp
 )
-add_dependencies(force_controller ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-target_link_libraries(force_controller
+add_dependencies(wrench_controller ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(wrench_controller
+  ${PROJECT_NAME}
   ${catkin_LIBRARIES}
 )
 ####################################

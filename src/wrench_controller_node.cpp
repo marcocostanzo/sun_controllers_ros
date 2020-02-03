@@ -1,4 +1,4 @@
-#include "sun_controllers_ros/ROSForceController.h"
+#include "sun_controllers_ros/ROSWrenchController.h"
 #include "signal.h"
 #include <memory>
 
@@ -10,7 +10,7 @@ std::unique_ptr<T> make_unique(Args&&... args) {
 }
 }
 
-std::unique_ptr<ROSForceController> force_controller;
+std::unique_ptr<sun::ROSWrenchController> force_controller;
 
 void mySigintHandler(int sig){ 
     force_controller->stop();
@@ -22,11 +22,11 @@ int main(int argc, char *argv[])
     //ROS INIT - Use a coustom signinthandler
     ros::init(argc,argv, "force_controller",ros::init_options::NoSigintHandler);
     signal(SIGINT, mySigintHandler);
-
+     
     ros::NodeHandle nh_private("~");
     ros::NodeHandle nh_public;
 
-    force_controller = patch::make_unique<ROSForceController>(
+    force_controller = patch::make_unique<sun::ROSWrenchController>(
         nh_public,
         nh_private
     );

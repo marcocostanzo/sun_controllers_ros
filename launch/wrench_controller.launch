@@ -1,0 +1,24 @@
+<launch>
+
+<arg name="controller_gains" default="[0.0,0.0,0.0,0.0,0.0,0.0]" />
+
+<arg name="wrench_command_topic" default="wrench_command" />
+<arg name="wrench_measure_topic" default="wrench_measure" />
+<arg name="twist_command_topic" default="twist_command" />
+<arg name="service_set_enable" default="set_enable" />
+
+<node 
+    name="wrench_controller"  
+    pkg="sun_controllers_ros" 
+    type="wrench_controller" 
+    output="screen"
+>
+    <param name="wrench_command_topic" type="string" value="$(arg wrench_command_topic)"/>
+    <param name="wrench_measure_topic" type="string" value="$(arg wrench_measure_topic)"/>
+    <param name="twist_command_topic" type="string" value="$(arg twist_command_topic)"/>
+    <param name="service_set_enable" type="string" value="$(arg service_set_enable)"/>
+
+    <rosparam param="gains" subst_value="true">$(arg controller_gains)</rosparam>
+</node>
+
+</launch>

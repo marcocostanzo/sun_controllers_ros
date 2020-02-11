@@ -123,6 +123,7 @@ include_directories(
 ## Declare a C++ library
 add_library(${PROJECT_NAME}
  src/${PROJECT_NAME}/ROSWrenchController.cpp
+ src/${PROJECT_NAME}/ROSWrenchControllerClient.cpp
 )
 
 ## Add cmake target dependencies of the library

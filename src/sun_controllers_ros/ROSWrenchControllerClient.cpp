@@ -22,19 +22,21 @@ using namespace sun;
     Constructor
     Initialize the controller
 */
-ROSWrenchControllerClient::ROSWrenchControllerClient(ros::NodeHandle& nh_public, ros::NodeHandle& nh_private)
+ROSWrenchControllerClient::ROSWrenchControllerClient(const ros::NodeHandle& nh_public,
+                                                     const std::string& wrench_command_topic,
+                                                     const std::string& wrench_measure_topic,
+                                                     const std::string& service_set_enable)
+  : nh_public_(nh_public)
 {
-  get_ros_params(nh_private);
-
   // Subscribers
   sub_wrench_measure_ =
-      nh_public.subscribe(wrench_command_topic_str_, 1, &ROSWrenchControllerClient::wrench_measure_cb_, this);
+      nh_public_.subscribe(wrench_command_topic_str_, 1, &ROSWrenchControllerClient::wrench_measure_cb_, this);
 
   // Publishers
-  pub_wrench_control_ = nh_public.advertise<geometry_msgs::WrenchStamped>(wrench_command_topic_str_, 1);
+  pub_wrench_control_ = nh_public_.advertise<geometry_msgs::WrenchStamped>(wrench_command_topic_str_, 1);
 
   // Service Clients
-  srv_client_set_enable_ = nh_public.serviceClient<std_srvs::SetBool>(service_set_enable_str_);
+  srv_client_set_enable_ = nh_public_.serviceClient<std_srvs::SetBool>(service_set_enable_str_);
 }
 
 /*
@@ -89,6 +91,68 @@ void ROSWrenchControllerClient::wait_steady_state(const geometry_msgs::WrenchSta
 }
 
 /*
+Wait for the steady state on specifc components
+*/
+void ROSWrenchControllerClient::wait_steady_state(geometry_msgs::WrenchStamped desired_wrench, bool b_fx, bool b_fy,
+                                                  bool b_fz, bool b_mx, bool b_my, bool b_mz,
+                                                  const ros::Duration& max_wait, double epsilon_force,
+                                                  double epsilon_torque, const ros::Time& t0)
+{
+  ros::Duration wait_remain = max_wait;
+  // set the desired wrench
+  if (!b_fx)
+    desired_wrench.wrench.force.x = 0.0;
+  if (!b_fy)
+    desired_wrench.wrench.force.y = 0.0;
+  if (!b_fz)
+    desired_wrench.wrench.force.z = 0.0;
+  if (!b_mx)
+    desired_wrench.wrench.torque.x = 0.0;
+  if (!b_my)
+    desired_wrench.wrench.torque.y = 0.0;
+  if (!b_mz)
+    desired_wrench.wrench.torque.z = 0.0;
+  // wait a measure sample
+  geometry_msgs::WrenchStamped wrench_measure = get_measure_sample(wait_remain, t0);
+  if (!b_fx)
+    wrench_measure.wrench.force.x = 0.0;
+  if (!b_fy)
+    wrench_measure.wrench.force.y = 0.0;
+  if (!b_fz)
+    wrench_measure.wrench.force.z = 0.0;
+  if (!b_mx)
+    wrench_measure.wrench.torque.x = 0.0;
+  if (!b_my)
+    wrench_measure.wrench.torque.y = 0.0;
+  if (!b_mz)
+    wrench_measure.wrench.torque.z = 0.0;
+  wait_remain = max_wait - (ros::Time::now() - t0);
+  bool steady_state = is_steady_state(wrench_measure, desired_wrench, epsilon_force, epsilon_torque);
+  while (ros::ok() && !steady_state && (wait_remain.toSec() > 0.0))
+  {
+    wrench_measure = get_measure_sample(wait_remain, t0);
+    if (!b_fx)
+      wrench_measure.wrench.force.x = 0.0;
+    if (!b_fy)
+      wrench_measure.wrench.force.y = 0.0;
+    if (!b_fz)
+      wrench_measure.wrench.force.z = 0.0;
+    if (!b_mx)
+      wrench_measure.wrench.torque.x = 0.0;
+    if (!b_my)
+      wrench_measure.wrench.torque.y = 0.0;
+    if (!b_mz)
+      wrench_measure.wrench.torque.z = 0.0;
+    steady_state = is_steady_state(wrench_measure, desired_wrench, epsilon_force, epsilon_torque);
+    wait_remain = max_wait - (ros::Time::now() - t0);
+  }
+  if (!steady_state)
+  {
+    throw std::runtime_error("ROSWrenchControllerClient::wait_steady_state Timeout");
+  }
+}
+
+/*
     Check steady state
 */
 bool ROSWrenchControllerClient::is_steady_state(const geometry_msgs::WrenchStamped& w1,
@@ -119,32 +183,6 @@ const geometry_msgs::WrenchStamped& ROSWrenchControllerClient::get_measure_sampl
     throw std::runtime_error("ROSWrenchControllerClient::get_measure_sample timeout");
   }
   return wrench_measure_;
-}
-
-/*
-    Get params from the parameter server
-*/
-void ROSWrenchControllerClient::get_ros_params(ros::NodeHandle& nh_private)
-{
-  get_ros_params_topics_services_name(nh_private);
-}
-
-/*
-    Get topics and services name from the parameter server
-*/
-void ROSWrenchControllerClient::get_ros_params_topics_services_name(ros::NodeHandle& nh_private)
-{
-  nh_private.param("wrench_command_topic", wrench_command_topic_str_, std::string("wrench_command"));
-  nh_private.param("wrench_measure_topic", wrench_measure_topic_str_, std::string("wrench_measure"));
-  nh_private.param("service_set_enable", service_set_enable_str_, std::string("set_enable"));
-}
-
-/*
-    Print the controller params
-*/
-void ROSWrenchControllerClient::print_params() const
-{
-  // TODO
 }
 
 /*

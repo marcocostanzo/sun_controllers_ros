@@ -28,6 +28,8 @@ class ROSWrenchControllerClient
 protected:
   // Protected members
 
+  ros::NodeHandle nh_public_;
+
   // true if a new wrench measure arrived
   bool wrench_measure_arrived_;
 
@@ -53,7 +55,8 @@ public:
       Constructor
       Initialize the controller
   */
-  ROSWrenchControllerClient(ros::NodeHandle& nh_public, ros::NodeHandle& nh_private);
+  ROSWrenchControllerClient(const ros::NodeHandle& nh_public, const std::string& wrench_command_topic,
+                            const std::string& wrench_measure_topic, const std::string& service_set_enable);
 
 public:
   // Public Methods
@@ -75,6 +78,10 @@ public:
                          double epsilon_force = 0.2, double epsilon_torque = 0.003,
                          const ros::Time& t0 = ros::Time::now());
 
+  void wait_steady_state(geometry_msgs::WrenchStamped desired_wrench, bool b_fx, bool b_fy, bool b_fz, bool b_mx,
+                         bool b_my, bool b_mz, const ros::Duration& max_wait, double epsilon_force = 0.2,
+                         double epsilon_torque = 0.003, const ros::Time& t0 = ros::Time::now());
+
   /*
       Check steady state
   */
@@ -86,21 +93,6 @@ public:
   */
   const geometry_msgs::WrenchStamped& get_measure_sample(const ros::Duration& max_wait,
                                                          const ros::Time& t0 = ros::Time::now());
-
-  /*
-      Get params from the parameter server
-  */
-  void get_ros_params(ros::NodeHandle& nh_private);
-
-  /*
-      Get topics and services name from the parameter server
-  */
-  void get_ros_params_topics_services_name(ros::NodeHandle& nh_private);
-
-  /*
-      Print the controller params
-  */
-  void print_params() const;
 
 protected:
   // Protected Methods

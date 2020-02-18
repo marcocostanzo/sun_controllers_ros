@@ -16,8 +16,17 @@
 
 #include "sun_controllers_ros/ROSWrenchControllerClient.h"
 
-using namespace sun;
+void wrench_cb(const geometry_msgs::WrenchStamped::ConstPtr& msg, geometry_msgs::WrenchStamped& out_msg,
+               bool& msg_arrived);
 
+void wrench_error(geometry_msgs::Wrench w1, geometry_msgs::Wrench w2, const bool mask[6], double& force_error,
+                  double& torque_error);
+
+void wrench_error(const geometry_msgs::Wrench& w1, const geometry_msgs::Wrench& w2, double& force_error,
+                  double& torque_error);
+
+namespace sun
+{
 /*
     Constructor
     Initialize the controller
@@ -26,17 +35,13 @@ ROSWrenchControllerClient::ROSWrenchControllerClient(const ros::NodeHandle& nh_p
                                                      const std::string& wrench_command_topic,
                                                      const std::string& wrench_measure_topic,
                                                      const std::string& service_set_enable)
-  : nh_public_(nh_public)
+  : nh_public_(nh_public), wrench_measure_topic_str_(wrench_measure_topic)
 {
-  // Subscribers
-  sub_wrench_measure_ =
-      nh_public_.subscribe(wrench_command_topic_str_, 1, &ROSWrenchControllerClient::wrench_measure_cb_, this);
-
   // Publishers
-  pub_wrench_control_ = nh_public_.advertise<geometry_msgs::WrenchStamped>(wrench_command_topic_str_, 1);
+  pub_wrench_control_ = nh_public_.advertise<geometry_msgs::WrenchStamped>(wrench_command_topic, 1);
 
   // Service Clients
-  srv_client_set_enable_ = nh_public_.serviceClient<std_srvs::SetBool>(service_set_enable_str_);
+  srv_client_set_enable_ = nh_public_.serviceClient<std_srvs::SetBool>(service_set_enable);
 }
 
 /*
@@ -67,131 +72,163 @@ void ROSWrenchControllerClient::publish_wrench_command(geometry_msgs::WrenchStam
 }
 
 /*
-Wait for the steady state
+   Wait for robot stop to desired pose
 */
-void ROSWrenchControllerClient::wait_steady_state(const geometry_msgs::WrenchStamped& desired_wrench,
-                                                  const ros::Duration& max_wait, double epsilon_force,
-                                                  double epsilon_torque, const ros::Time& t0)
+void ROSWrenchControllerClient::wait_steady_state(const geometry_msgs::Wrench& desired_wrench,
+                                                  const ros::Duration& timeout, double epsilon_force,
+                                                  double epsilon_torque)
 {
-  ros::Duration wait_remain = max_wait;
-  // wait a measure sample
-  get_measure_sample(wait_remain, t0);
-  wait_remain = max_wait - (ros::Time::now() - t0);
-  bool steady_state = is_steady_state(wrench_measure_, desired_wrench, epsilon_force, epsilon_torque);
-  while (ros::ok() && !steady_state && (wait_remain.toSec() > 0.0))
-  {
-    get_measure_sample(wait_remain, t0);
-    steady_state = is_steady_state(wrench_measure_, desired_wrench, epsilon_force, epsilon_torque);
-    wait_remain = max_wait - (ros::Time::now() - t0);
-  }
-  if (!steady_state)
-  {
-    throw std::runtime_error("ROSWrenchControllerClient::wait_steady_state Timeout");
-  }
-}
+  ros::Time start_time = ros::Time::now();
 
-/*
-Wait for the steady state on specifc components
-*/
-void ROSWrenchControllerClient::wait_steady_state(geometry_msgs::WrenchStamped desired_wrench, bool b_fx, bool b_fy,
-                                                  bool b_fz, bool b_mx, bool b_my, bool b_mz,
-                                                  const ros::Duration& max_wait, double epsilon_force,
-                                                  double epsilon_torque, const ros::Time& t0)
-{
-  ros::Duration wait_remain = max_wait;
-  // set the desired wrench
-  if (!b_fx)
-    desired_wrench.wrench.force.x = 0.0;
-  if (!b_fy)
-    desired_wrench.wrench.force.y = 0.0;
-  if (!b_fz)
-    desired_wrench.wrench.force.z = 0.0;
-  if (!b_mx)
-    desired_wrench.wrench.torque.x = 0.0;
-  if (!b_my)
-    desired_wrench.wrench.torque.y = 0.0;
-  if (!b_mz)
-    desired_wrench.wrench.torque.z = 0.0;
-  // wait a measure sample
-  geometry_msgs::WrenchStamped wrench_measure = get_measure_sample(wait_remain, t0);
-  if (!b_fx)
-    wrench_measure.wrench.force.x = 0.0;
-  if (!b_fy)
-    wrench_measure.wrench.force.y = 0.0;
-  if (!b_fz)
-    wrench_measure.wrench.force.z = 0.0;
-  if (!b_mx)
-    wrench_measure.wrench.torque.x = 0.0;
-  if (!b_my)
-    wrench_measure.wrench.torque.y = 0.0;
-  if (!b_mz)
-    wrench_measure.wrench.torque.z = 0.0;
-  wait_remain = max_wait - (ros::Time::now() - t0);
-  bool steady_state = is_steady_state(wrench_measure, desired_wrench, epsilon_force, epsilon_torque);
-  while (ros::ok() && !steady_state && (wait_remain.toSec() > 0.0))
-  {
-    wrench_measure = get_measure_sample(wait_remain, t0);
-    if (!b_fx)
-      wrench_measure.wrench.force.x = 0.0;
-    if (!b_fy)
-      wrench_measure.wrench.force.y = 0.0;
-    if (!b_fz)
-      wrench_measure.wrench.force.z = 0.0;
-    if (!b_mx)
-      wrench_measure.wrench.torque.x = 0.0;
-    if (!b_my)
-      wrench_measure.wrench.torque.y = 0.0;
-    if (!b_mz)
-      wrench_measure.wrench.torque.z = 0.0;
-    steady_state = is_steady_state(wrench_measure, desired_wrench, epsilon_force, epsilon_torque);
-    wait_remain = max_wait - (ros::Time::now() - t0);
-  }
-  if (!steady_state)
-  {
-    throw std::runtime_error("ROSWrenchControllerClient::wait_steady_state Timeout");
-  }
-}
+  geometry_msgs::WrenchStamped actual_wrench;
+  bool msg_arrived;
+  boost::function<void(const geometry_msgs::WrenchStamped::ConstPtr& msg)> sub_cb =
+      boost::bind(wrench_cb, _1, boost::ref(actual_wrench), boost::ref(msg_arrived));
+  ros::Subscriber sub_pose = nh_public_.subscribe(wrench_measure_topic_str_, 1, sub_cb);
 
-/*
-    Check steady state
-*/
-bool ROSWrenchControllerClient::is_steady_state(const geometry_msgs::WrenchStamped& w1,
-                                                const geometry_msgs::WrenchStamped& w2, double epsilon_force,
-                                                double epsilon_torque)
-{
-  return ((sqrt(pow(w1.wrench.force.x - w2.wrench.force.x, 2) + pow(w1.wrench.force.y - w2.wrench.force.y, 2) +
-                pow(w1.wrench.force.z - w2.wrench.force.z, 2)) < epsilon_force) &&
-          (sqrt(pow(w1.wrench.torque.x - w2.wrench.torque.x, 2) + pow(w1.wrench.torque.y - w2.wrench.torque.y, 2) +
-                pow(w1.wrench.torque.z - w2.wrench.torque.z, 2)) < epsilon_torque));
-}
-
-/*
-Get a sample of the measure
-*/
-const geometry_msgs::WrenchStamped& ROSWrenchControllerClient::get_measure_sample(const ros::Duration& max_wait,
-                                                                                  const ros::Time& t0)
-{
-  ros::Duration wait_remain = max_wait;
-  wrench_measure_arrived_ = false;
-  while (ros::ok() && !wrench_measure_arrived_ && (wait_remain.toSec() > 0.0))
+  msg_arrived = false;
+  while (ros::ok())
   {
+    if (msg_arrived)
+    {
+      double force_error, torque_error;
+      wrench_error(desired_wrench, actual_wrench.wrench, force_error, torque_error);
+      if (force_error < epsilon_force && torque_error < epsilon_torque)
+      {
+        return;
+      }
+      msg_arrived = false;
+    }
+    if (timeout >= ros::Duration(0))
+    {
+      ros::Time current_time = ros::Time::now();
+      if ((current_time - start_time) >= timeout)
+      {
+        throw timeout_exception("ROSWrenchControllerClient::wait_steady_state timeout");
+      }
+    }
     ros::spinOnce();
-    wait_remain = max_wait - (ros::Time::now() - t0);
   }
-  if (!wrench_measure_arrived_)
-  {
-    throw std::runtime_error("ROSWrenchControllerClient::get_measure_sample timeout");
-  }
-  return wrench_measure_;
 }
 
-/*
-    Measure CB
-    Update the measure and call the controller
-*/
-void ROSWrenchControllerClient::wrench_measure_cb_(const geometry_msgs::WrenchStamped::ConstPtr& msg)
+void ROSWrenchControllerClient::wait_steady_state(const geometry_msgs::Wrench& desired_wrench, const bool mask[6],
+                                                  const ros::Duration& timeout, double epsilon_force,
+                                                  double epsilon_torque)
+{
+  ros::Time start_time = ros::Time::now();
+
+  geometry_msgs::WrenchStamped actual_wrench;
+  bool msg_arrived;
+  boost::function<void(const geometry_msgs::WrenchStamped::ConstPtr& msg)> sub_cb =
+      boost::bind(wrench_cb, _1, boost::ref(actual_wrench), boost::ref(msg_arrived));
+  ros::Subscriber sub_pose = nh_public_.subscribe(wrench_measure_topic_str_, 1, sub_cb);
+
+  msg_arrived = false;
+  while (ros::ok())
+  {
+    if (msg_arrived)
+    {
+      double force_error, torque_error;
+      wrench_error(desired_wrench, actual_wrench.wrench, mask, force_error, torque_error);
+      if (force_error < epsilon_force && torque_error < epsilon_torque)
+      {
+        return;
+      }
+      msg_arrived = false;
+    }
+    if (timeout >= ros::Duration(0))
+    {
+      ros::Time current_time = ros::Time::now();
+      if ((current_time - start_time) >= timeout)
+      {
+        throw timeout_exception("ROSWrenchControllerClient::wait_steady_state timeout");
+      }
+    }
+    ros::spinOnce();
+  }
+}
+
+geometry_msgs::WrenchStamped ROSWrenchControllerClient::get_measure_sample(const ros::Duration& timeout)
+{
+  ros::Time start_time = ros::Time::now();
+
+  geometry_msgs::WrenchStamped actual_wrench;
+  bool msg_arrived;
+  boost::function<void(const geometry_msgs::WrenchStamped::ConstPtr& msg)> sub_cb =
+      boost::bind(wrench_cb, _1, boost::ref(actual_wrench), boost::ref(msg_arrived));
+  ros::Subscriber sub_pose = nh_public_.subscribe(wrench_measure_topic_str_, 1, sub_cb);
+
+  msg_arrived = false;
+  while (ros::ok())
+  {
+    if (msg_arrived)
+    {
+      return actual_wrench;
+    }
+    if (timeout >= ros::Duration(0))
+    {
+      ros::Time current_time = ros::Time::now();
+      if ((current_time - start_time) >= timeout)
+      {
+        throw timeout_exception("ROSWrenchControllerClient::get_measure_sample timeout");
+      }
+    }
+    ros::spinOnce();
+  }
+}
+
+};  // namespace sun
+
+void wrench_cb(const geometry_msgs::WrenchStamped::ConstPtr& msg, geometry_msgs::WrenchStamped& out_msg,
+               bool& msg_arrived)
 {
   // Update measure
-  wrench_measure_ = *msg;
-  wrench_measure_arrived_ = true;
+  out_msg = *msg;
+  msg_arrived = true;
+}
+
+void wrench_error(geometry_msgs::Wrench w1, geometry_msgs::Wrench w2, const bool mask[6], double& force_error,
+                  double& torque_error)
+{
+  if (mask[0])
+  {
+    w1.force.x = 0.0;
+    w2.force.x = 0.0;
+  }
+  if (mask[1])
+  {
+    w1.force.y = 0.0;
+    w2.force.y = 0.0;
+  }
+  if (mask[2])
+  {
+    w1.force.z = 0.0;
+    w2.force.z = 0.0;
+  }
+  if (mask[3])
+  {
+    w1.torque.x = 0.0;
+    w2.torque.x = 0.0;
+  }
+  if (mask[4])
+  {
+    w1.torque.y = 0.0;
+    w2.torque.y = 0.0;
+  }
+  if (mask[5])
+  {
+    w1.torque.z = 0.0;
+    w2.torque.z = 0.0;
+  }
+  wrench_error(w1, w2, force_error, torque_error);
+}
+
+void wrench_error(const geometry_msgs::Wrench& w1, const geometry_msgs::Wrench& w2, double& force_error,
+                  double& torque_error)
+{
+  force_error =
+      sqrt(pow(w1.force.x - w2.force.x, 2) + pow(w1.force.y - w2.force.y, 2) + pow(w1.force.z - w2.force.z, 2));
+
+  torque_error =
+      sqrt(pow(w1.torque.x - w2.torque.x, 2) + pow(w1.torque.y - w2.torque.y, 2) + pow(w1.torque.z - w2.torque.z, 2));
 }

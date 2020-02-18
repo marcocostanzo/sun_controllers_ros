@@ -25,28 +25,28 @@ namespace sun
 {
 class ROSWrenchControllerClient
 {
+public:
+  class timeout_exception : public std::runtime_error
+  {
+  public:
+    timeout_exception(std::string const& msg) : std::runtime_error(msg)
+    {
+    }
+  };
+
 protected:
   // Protected members
 
   ros::NodeHandle nh_public_;
 
-  // true if a new wrench measure arrived
-  bool wrench_measure_arrived_;
-
-  // Wrench measure as rosmsg
-  geometry_msgs::WrenchStamped wrench_measure_;
-
   // Publisher for the wrench commands
   ros::Publisher pub_wrench_control_;
-
-  // Measure wrench subscribers
-  ros::Subscriber sub_wrench_measure_;
 
   // ServiceClient set enable
   ros::ServiceClient srv_client_set_enable_;
 
   // String for topic and service names
-  std::string wrench_command_topic_str_, wrench_measure_topic_str_, service_set_enable_str_;
+  std::string wrench_measure_topic_str_;
 
 public:
   // Public Constructor
@@ -74,36 +74,16 @@ public:
   /*
   Wait for the steady state
   */
-  void wait_steady_state(const geometry_msgs::WrenchStamped& desired_wrench, const ros::Duration& max_wait,
-                         double epsilon_force = 0.2, double epsilon_torque = 0.003,
-                         const ros::Time& t0 = ros::Time::now());
+  void wait_steady_state(const geometry_msgs::Wrench& desired_wrench, const ros::Duration& timeout = ros::Duration(-1),
+                         double epsilon_force = 0.2, double epsilon_torque = 0.003);
+  void wait_steady_state(const geometry_msgs::Wrench& desired_wrench, const bool mask[6],
+                         const ros::Duration& timeout = ros::Duration(-1), double epsilon_force = 0.2,
+                         double epsilon_torque = 0.003);
 
-  void wait_steady_state(geometry_msgs::WrenchStamped desired_wrench, bool b_fx, bool b_fy, bool b_fz, bool b_mx,
-                         bool b_my, bool b_mz, const ros::Duration& max_wait, double epsilon_force = 0.2,
-                         double epsilon_torque = 0.003, const ros::Time& t0 = ros::Time::now());
-
-  /*
-      Check steady state
-  */
-  bool is_steady_state(const geometry_msgs::WrenchStamped& w1, const geometry_msgs::WrenchStamped& w2,
-                       double epsilon_force = 0.2, double epsilon_torque = 0.003);
-
-  /*
-  Get a sample of the measure
-  */
-  const geometry_msgs::WrenchStamped& get_measure_sample(const ros::Duration& max_wait,
-                                                         const ros::Time& t0 = ros::Time::now());
-
-protected:
-  // Protected Methods
-
-  /*
-      Measure CB
-      Update the measure and call the controller
-  */
-  void wrench_measure_cb_(const geometry_msgs::WrenchStamped::ConstPtr& msg);
+  geometry_msgs::WrenchStamped get_measure_sample(const ros::Duration& timeout = ros::Duration(-1));
 
 };  // class
+
 }  // namespace sun
 
 #endif

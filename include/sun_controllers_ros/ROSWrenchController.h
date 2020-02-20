@@ -26,9 +26,10 @@
 #define MEAN_NUM_SAMPLES 50
 #define DEFAULT_GAINS 0.0
 
-namespace sun {
-class ROSWrenchController {
-
+namespace sun
+{
+class ROSWrenchController
+{
 protected:
   // Protected members
 
@@ -55,8 +56,8 @@ protected:
   ros::ServiceServer srv_server_set_enable_;
 
   // String for topic and service names
-  std::string wrench_command_topic_str_, wrench_measure_topic_str_,
-      twist_command_topic_str_, service_set_enable_str_;
+  std::string wrench_command_topic_str_, wrench_measure_topic_str_, twist_command_topic_str_, service_set_enable_str_,
+      command_frame_id_;
 
 public:
   // Public Constructor
@@ -121,8 +122,7 @@ protected:
   Service Callbk - Set Enable
   Set enable state of the Controller
   */
-  bool srv_server_set_enabled_cb_(std_srvs::SetBool::Request &request,
-                                  std_srvs::SetBool::Response &response);
+  bool srv_server_set_enabled_cb_(std_srvs::SetBool::Request &request, std_srvs::SetBool::Response &response);
 
   /*
       Command cb
@@ -157,7 +157,7 @@ protected:
   */
   void pre_start_();
 
-}; // class
-} // namespace sun
+};  // class
+}  // namespace sun
 
 #endif

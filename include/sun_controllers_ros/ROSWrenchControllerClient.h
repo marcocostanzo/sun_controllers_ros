@@ -21,6 +21,10 @@
 #include "ros/ros.h"
 #include "std_srvs/SetBool.h"
 
+#define SUN_ROS_WRENCH_CONTROLLER_CLIENT_DEFAULT_EPS_FORCE 0.2
+
+#define SUN_ROS_WRENCH_CONTROLLER_CLIENT_DEFAULT_EPS_TORQUE 0.01
+
 namespace sun
 {
 class ROSWrenchControllerClient
@@ -59,6 +63,13 @@ public:
                             const std::string& wrench_measure_topic, const std::string& service_set_enable);
 
 public:
+  enum Stop_Conditions
+  {
+    EQUAL,
+    GREATER,
+    LESS
+  };
+
   // Public Methods
 
   /*
@@ -75,10 +86,16 @@ public:
   Wait for the steady state
   */
   void wait_steady_state(const geometry_msgs::Wrench& desired_wrench, const ros::Duration& timeout = ros::Duration(-1),
-                         double epsilon_force = 0.2, double epsilon_torque = 0.003);
+                         double epsilon_force = SUN_ROS_WRENCH_CONTROLLER_CLIENT_DEFAULT_EPS_FORCE,
+                         double epsilon_torque = SUN_ROS_WRENCH_CONTROLLER_CLIENT_DEFAULT_EPS_TORQUE);
   void wait_steady_state(const geometry_msgs::Wrench& desired_wrench, const bool mask[6],
-                         const ros::Duration& timeout = ros::Duration(-1), double epsilon_force = 0.2,
-                         double epsilon_torque = 0.003);
+                         const ros::Duration& timeout = ros::Duration(-1),
+                         double epsilon_force = SUN_ROS_WRENCH_CONTROLLER_CLIENT_DEFAULT_EPS_FORCE,
+                         double epsilon_torque = SUN_ROS_WRENCH_CONTROLLER_CLIENT_DEFAULT_EPS_TORQUE);
+  void wait_component_steady_state(int component_index, double desired_value, int stop_condition,
+                                   const ros::Duration& timeout = ros::Duration(-1),
+                                   double epsilon_force = SUN_ROS_WRENCH_CONTROLLER_CLIENT_DEFAULT_EPS_FORCE,
+                                   double epsilon_torque = SUN_ROS_WRENCH_CONTROLLER_CLIENT_DEFAULT_EPS_TORQUE);
 
   geometry_msgs::WrenchStamped get_measure_sample(const ros::Duration& timeout = ros::Duration(-1));
 

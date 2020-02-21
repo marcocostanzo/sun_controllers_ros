@@ -111,6 +111,105 @@ void ROSWrenchControllerClient::wait_steady_state(const geometry_msgs::Wrench& d
   }
 }
 
+void ROSWrenchControllerClient::wait_component_steady_state(int component_index, double desired_value,
+                                                            int stop_condition, const ros::Duration& timeout,
+                                                            double epsilon_force, double epsilon_torque)
+{
+  ros::Time start_time = ros::Time::now();
+
+  double epsilon = (component_index >= 3) ? epsilon_force : epsilon_torque;
+
+  geometry_msgs::WrenchStamped actual_wrench;
+  bool msg_arrived;
+  boost::function<void(const geometry_msgs::WrenchStamped::ConstPtr& msg)> sub_cb =
+      boost::bind(wrench_cb, _1, boost::ref(actual_wrench), boost::ref(msg_arrived));
+  ros::Subscriber sub_pose = nh_public_.subscribe(wrench_measure_topic_str_, 1, sub_cb);
+
+  msg_arrived = false;
+  while (ros::ok())
+  {
+    if (msg_arrived)
+    {
+      double component_value;
+      switch (component_index)
+      {
+        case 0:
+        {
+          component_value = actual_wrench.wrench.force.x;
+          break;
+        }
+        case 1:
+        {
+          component_value = actual_wrench.wrench.force.y;
+          break;
+        }
+        case 2:
+        {
+          component_value = actual_wrench.wrench.force.z;
+          break;
+        }
+        case 3:
+        {
+          component_value = actual_wrench.wrench.torque.x;
+          break;
+        }
+        case 4:
+        {
+          component_value = actual_wrench.wrench.torque.y;
+          break;
+        }
+        case 5:
+        {
+          component_value = actual_wrench.wrench.torque.z;
+          break;
+        }
+        default:
+        {
+          throw std::out_of_range("ROSWrenchControllerClient::wait_component_steady_state component_index must be in "
+                                  "[0,5]");
+        }
+      }
+      bool stop;
+      switch (stop_condition)
+      {
+        case Stop_Conditions::EQUAL:
+        {
+          stop = fabs(desired_value - component_value) < epsilon;
+          break;
+        }
+        case Stop_Conditions::GREATER:
+        {
+          stop = component_value >= desired_value;
+          break;
+        }
+        case Stop_Conditions::LESS:
+        {
+          stop = component_value <= desired_value;
+          break;
+        }
+        default:
+        {
+          throw std::out_of_range("ROSWrenchControllerClient::wait_component_steady_state invalid stop_condition");
+        }
+      }
+      if (stop)
+      {
+        return;
+      }
+      msg_arrived = false;
+    }
+    if (timeout >= ros::Duration(0))
+    {
+      ros::Time current_time = ros::Time::now();
+      if ((current_time - start_time) >= timeout)
+      {
+        throw timeout_exception("ROSWrenchControllerClient::wait_steady_state timeout");
+      }
+    }
+    ros::spinOnce();
+  }
+}
+
 void ROSWrenchControllerClient::wait_steady_state(const geometry_msgs::Wrench& desired_wrench, const bool mask[6],
                                                   const ros::Duration& timeout, double epsilon_force,
                                                   double epsilon_torque)
@@ -190,32 +289,32 @@ void wrench_cb(const geometry_msgs::WrenchStamped::ConstPtr& msg, geometry_msgs:
 void wrench_error(geometry_msgs::Wrench w1, geometry_msgs::Wrench w2, const bool mask[6], double& force_error,
                   double& torque_error)
 {
-  if (mask[0])
+  if (!mask[0])
   {
     w1.force.x = 0.0;
     w2.force.x = 0.0;
   }
-  if (mask[1])
+  if (!mask[1])
   {
     w1.force.y = 0.0;
     w2.force.y = 0.0;
   }
-  if (mask[2])
+  if (!mask[2])
   {
     w1.force.z = 0.0;
     w2.force.z = 0.0;
   }
-  if (mask[3])
+  if (!mask[3])
   {
     w1.torque.x = 0.0;
     w2.torque.x = 0.0;
   }
-  if (mask[4])
+  if (!mask[4])
   {
     w1.torque.y = 0.0;
     w2.torque.y = 0.0;
   }
-  if (mask[5])
+  if (!mask[5])
   {
     w1.torque.z = 0.0;
     w2.torque.z = 0.0;

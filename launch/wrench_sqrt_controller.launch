@@ -1,0 +1,57 @@
+<launch>
+
+<arg name="controller_gains" default="[0.0,0.0,0.0,0.0,0.0,0.0]" />
+
+<arg name="wrench_command_topic" default="wrench_command" />
+<arg name="wrench_measure_topic" default="wrench_measure" />
+<arg name="twist_command_topic" default="twist_command" />
+<arg name="service_set_enable" default="set_enable" />
+
+<arg name="max_sqrt_angular_coeff" default="1.0" /> <!-- max x will be 1/m^2  -->
+<arg name="sqrt_mask" default="[false,false,true,false,false,false]" />
+
+<node 
+    name="wrench_controller"  
+    pkg="sun_controllers_ros" 
+    type="wrench_controller" 
+    output="screen"
+>
+    <param name="wrench_command_topic" type="string" value="$(arg wrench_command_topic)_sqrt"/>
+    <param name="wrench_measure_topic" type="string" value="$(arg wrench_measure_topic)_sqrt"/>
+    <param name="twist_command_topic" type="string" value="$(arg twist_command_topic)"/>
+    <param name="service_set_enable" type="string" value="$(arg service_set_enable)"/>
+
+    <rosparam param="gains" subst_value="true">$(arg controller_gains)</rosparam>
+</node>
+
+<node 
+    name="wrench_sqrt_ref"  
+    pkg="sun_controllers_ros" 
+    type="wrench_sqrt" 
+    output="screen"
+>
+
+    <param name="in_topic" type="string" value="$(arg wrench_command_topic)"/>
+    <param name="out_topic" type="string" value="$(arg wrench_command_topic)_sqrt"/>
+    <param name="max_angular_coeff" value="$(arg max_sqrt_angular_coeff)"/>
+
+    <rosparam param="mask" subst_value="true">$(arg sqrt_mask)</rosparam>
+
+</node>
+
+<node 
+    name="wrench_sqrt_fb"  
+    pkg="sun_controllers_ros" 
+    type="wrench_sqrt" 
+    output="screen"
+>
+
+    <param name="in_topic" type="string" value="$(arg wrench_measure_topic)"/>
+    <param name="out_topic" type="string" value="$(arg wrench_measure_topic)_sqrt"/>
+    <param name="max_angular_coeff" value="$(arg max_sqrt_angular_coeff)"/>
+
+    <rosparam param="mask" subst_value="true">$(arg sqrt_mask)</rosparam>
+
+</node>
+
+</launch>

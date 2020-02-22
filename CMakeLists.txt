@@ -215,3 +215,13 @@ target_link_libraries(wrench_controller
   ${catkin_LIBRARIES}
 )
 ####################################
+####################################
+add_executable(wrench_sqrt
+  src/wrench_sqrt_node.cpp
+)
+add_dependencies(wrench_sqrt ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(wrench_sqrt
+  ${PROJECT_NAME}
+  ${catkin_LIBRARIES}
+)
+####################################

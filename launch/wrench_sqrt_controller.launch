@@ -6,7 +6,9 @@
 <arg name="wrench_measure_topic" default="wrench_measure" />
 <arg name="twist_command_topic" default="twist_command" />
 <arg name="service_set_enable" default="set_enable" />
+<arg name="command_frame_id" default="twist_command_frame"/>
 
+<arg name="use_sqrt" default="true"/>
 <arg name="max_sqrt_angular_coeff" default="1.0" /> <!-- max x will be 1/m^2  -->
 <arg name="sqrt_mask" default="[false,false,true,false,false,false]" />
 
@@ -16,15 +18,19 @@
     type="wrench_controller" 
     output="screen"
 >
-    <param name="wrench_command_topic" type="string" value="$(arg wrench_command_topic)_sqrt"/>
-    <param name="wrench_measure_topic" type="string" value="$(arg wrench_measure_topic)_sqrt"/>
+    <param if="$(arg use_sqrt)" name="wrench_command_topic" type="string" value="$(arg wrench_command_topic)_sqrt"/>
+    <param if="$(arg use_sqrt)" name="wrench_measure_topic" type="string" value="$(arg wrench_measure_topic)_sqrt"/>
+    <param unless="$(arg use_sqrt)" name="wrench_command_topic" type="string" value="$(arg wrench_command_topic)"/>
+    <param unless="$(arg use_sqrt)" name="wrench_measure_topic" type="string" value="$(arg wrench_measure_topic)"/>
     <param name="twist_command_topic" type="string" value="$(arg twist_command_topic)"/>
     <param name="service_set_enable" type="string" value="$(arg service_set_enable)"/>
+    <param name="command_frame_id" type="string" value="$(arg command_frame_id)"/>
 
     <rosparam param="gains" subst_value="true">$(arg controller_gains)</rosparam>
 </node>
 
 <node 
+    if="$(arg use_sqrt)"
     name="wrench_sqrt_ref"  
     pkg="sun_controllers_ros" 
     type="wrench_sqrt" 
@@ -40,6 +46,7 @@
 </node>
 
 <node 
+    if="$(arg use_sqrt)"
     name="wrench_sqrt_fb"  
     pkg="sun_controllers_ros" 
     type="wrench_sqrt" 

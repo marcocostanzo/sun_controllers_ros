@@ -218,9 +218,7 @@ void ROSWrenchControllerClient::wait_steady_state(const geometry_msgs::Wrench& d
 
   geometry_msgs::WrenchStamped actual_wrench;
   bool msg_arrived;
-  boost::function<void(const geometry_msgs::WrenchStamped::ConstPtr& msg)> sub_cb =
-      boost::bind(wrench_cb, _1, boost::ref(actual_wrench), boost::ref(msg_arrived));
-  ros::Subscriber sub_pose = nh_public_.subscribe(wrench_measure_topic_str_, 1, sub_cb);
+  ros::Subscriber sub_wrench = get_measure_subscriber(actual_wrench, msg_arrived);
 
   msg_arrived = false;
   while (ros::ok())
@@ -247,15 +245,20 @@ void ROSWrenchControllerClient::wait_steady_state(const geometry_msgs::Wrench& d
   }
 }
 
+ros::Subscriber ROSWrenchControllerClient::get_measure_subscriber(geometry_msgs::WrenchStamped& actual_wrench, bool& msg_arrived)
+{
+  boost::function<void(const geometry_msgs::WrenchStamped::ConstPtr& msg)> sub_cb =
+      boost::bind(wrench_cb, _1, boost::ref(actual_wrench), boost::ref(msg_arrived));
+  return nh_public_.subscribe(wrench_measure_topic_str_, 1, sub_cb);
+}
+
 geometry_msgs::WrenchStamped ROSWrenchControllerClient::get_measure_sample(const ros::Duration& timeout)
 {
   ros::Time start_time = ros::Time::now();
 
   geometry_msgs::WrenchStamped actual_wrench;
   bool msg_arrived;
-  boost::function<void(const geometry_msgs::WrenchStamped::ConstPtr& msg)> sub_cb =
-      boost::bind(wrench_cb, _1, boost::ref(actual_wrench), boost::ref(msg_arrived));
-  ros::Subscriber sub_pose = nh_public_.subscribe(wrench_measure_topic_str_, 1, sub_cb);
+  ros::Subscriber sub_wrench = get_measure_subscriber(actual_wrench, msg_arrived);
 
   msg_arrived = false;
   while (ros::ok())

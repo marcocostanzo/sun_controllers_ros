@@ -83,6 +83,11 @@ public:
   void publish_wrench_command(geometry_msgs::WrenchStamped wrench_command);
 
   /*
+  Get a measure subscriber, actual_wrench and msg_arrived are filled on spin()
+  */
+  ros::Subscriber get_measure_subscriber(geometry_msgs::WrenchStamped& actual_wrench, bool& msg_arrived);
+
+  /*
   Wait for the steady state
   */
   void wait_steady_state(const geometry_msgs::Wrench& desired_wrench, const ros::Duration& timeout = ros::Duration(-1),

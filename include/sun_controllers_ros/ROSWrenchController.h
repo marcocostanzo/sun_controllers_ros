@@ -33,6 +33,8 @@ class ROSWrenchController
 protected:
   // Protected members
 
+  ros::NodeHandle nh_public_;
+
   // true if a new wrench measure arrived
   bool wrench_measure_arrived_;
 

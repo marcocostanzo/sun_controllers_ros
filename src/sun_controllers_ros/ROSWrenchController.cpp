@@ -20,6 +20,7 @@
     Initialize the controller
 */
 sun::ROSWrenchController::ROSWrenchController(ros::NodeHandle &nh_public, ros::NodeHandle &nh_private)
+:nh_public_(nh_public)
 {
   enabled_ = false;
 
@@ -27,16 +28,16 @@ sun::ROSWrenchController::ROSWrenchController(ros::NodeHandle &nh_public, ros::N
 
   // Subscribers
   sub_wrench_command_ =
-      nh_public.subscribe(wrench_command_topic_str_, 1, &ROSWrenchController::wrench_command_cb_, this);
+      nh_public_.subscribe(wrench_command_topic_str_, 1, &ROSWrenchController::wrench_command_cb_, this);
   sub_wrench_measure_ =
-      nh_public.subscribe(wrench_measure_topic_str_, 1, &ROSWrenchController::wrench_measure_cb_, this);
+      nh_public_.subscribe(wrench_measure_topic_str_, 1, &ROSWrenchController::wrench_measure_cb_, this);
 
   // Publishers
-  pub_twist_control_ = nh_public.advertise<geometry_msgs::TwistStamped>(twist_command_topic_str_, 1);
+  pub_twist_control_ = nh_public_.advertise<geometry_msgs::TwistStamped>(twist_command_topic_str_, 1);
 
   // Service Servers
   srv_server_set_enable_ =
-      nh_public.advertiseService(service_set_enable_str_, &ROSWrenchController::srv_server_set_enabled_cb_, this);
+      nh_public_.advertiseService(service_set_enable_str_, &ROSWrenchController::srv_server_set_enabled_cb_, this);
 }
 
 /*
@@ -106,9 +107,14 @@ geometry_msgs::TwistStamped sun::ROSWrenchController::compute_control()
 */
 void sun::ROSWrenchController::wait_wrench_measure()
 {
+  ROS_WARN("[Wrench Controller] wait_wrench_measure...");
+  //PATCH!
+  ros::Subscriber sub_wrench_measure =
+      nh_public_.subscribe(wrench_measure_topic_str_, 1, &ROSWrenchController::wrench_measure_cb_, this);
   wrench_measure_arrived_ = false;
   while (ros::ok() && !wrench_measure_arrived_)
     ros::spinOnce();
+  ROS_WARN("[Wrench Controller] wait_wrench_measure OK");
 }
 
 /*

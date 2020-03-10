@@ -221,11 +221,11 @@ void ROSWrenchControllerClient::wait_steady_state(const geometry_msgs::Wrench& d
   ros::Subscriber sub_wrench = get_measure_subscriber(actual_wrench, msg_arrived);
 
   msg_arrived = false;
+  double force_error = 0, torque_error = 0;
   while (ros::ok())
   {
     if (msg_arrived)
     {
-      double force_error, torque_error;
       wrench_error(desired_wrench, actual_wrench.wrench, mask, force_error, torque_error);
       if (force_error < epsilon_force && torque_error < epsilon_torque)
       {
@@ -238,7 +238,7 @@ void ROSWrenchControllerClient::wait_steady_state(const geometry_msgs::Wrench& d
       ros::Time current_time = ros::Time::now();
       if ((current_time - start_time) >= timeout)
       {
-        throw timeout_exception("ROSWrenchControllerClient::wait_steady_state timeout");
+        throw timeout_exception("ROSWrenchControllerClient::wait_steady_state timeout - force_error:" + std::to_string(force_error) + " torque_error: " + std::to_string(torque_error));
       }
     }
     ros::spinOnce();

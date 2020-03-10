@@ -107,14 +107,14 @@ geometry_msgs::TwistStamped sun::ROSWrenchController::compute_control()
 */
 void sun::ROSWrenchController::wait_wrench_measure()
 {
-  ROS_WARN("[Wrench Controller] wait_wrench_measure...");
+  //ROS_WARN("[Wrench Controller] wait_wrench_measure...");
   //PATCH!
   ros::Subscriber sub_wrench_measure =
       nh_public_.subscribe(wrench_measure_topic_str_, 1, &ROSWrenchController::wrench_measure_cb_, this);
   wrench_measure_arrived_ = false;
   while (ros::ok() && !wrench_measure_arrived_)
     ros::spinOnce();
-  ROS_WARN("[Wrench Controller] wait_wrench_measure OK");
+  //ROS_WARN("[Wrench Controller] wait_wrench_measure OK");
 }
 
 /*

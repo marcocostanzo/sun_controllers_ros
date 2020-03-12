@@ -96,7 +96,8 @@ public:
   void wait_steady_state(const geometry_msgs::Wrench& desired_wrench, const bool mask[6],
                          const ros::Duration& timeout = ros::Duration(-1),
                          double epsilon_force = SUN_ROS_WRENCH_CONTROLLER_CLIENT_DEFAULT_EPS_FORCE,
-                         double epsilon_torque = SUN_ROS_WRENCH_CONTROLLER_CLIENT_DEFAULT_EPS_TORQUE);
+                         double epsilon_torque = SUN_ROS_WRENCH_CONTROLLER_CLIENT_DEFAULT_EPS_TORQUE,
+                         const boost::function<void()>& on_wait_cb = 0);
   void wait_component_steady_state(int component_index, double desired_value, int stop_condition,
                                    const ros::Duration& timeout = ros::Duration(-1),
                                    double epsilon_force = SUN_ROS_WRENCH_CONTROLLER_CLIENT_DEFAULT_EPS_FORCE,

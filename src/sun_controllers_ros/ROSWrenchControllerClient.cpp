@@ -212,7 +212,7 @@ void ROSWrenchControllerClient::wait_component_steady_state(int component_index,
 
 void ROSWrenchControllerClient::wait_steady_state(const geometry_msgs::Wrench& desired_wrench, const bool mask[6],
                                                   const ros::Duration& timeout, double epsilon_force,
-                                                  double epsilon_torque)
+                                                  double epsilon_torque, const boost::function<void()>& on_wait_cb)
 {
   ros::Time start_time = ros::Time::now();
 
@@ -224,6 +224,8 @@ void ROSWrenchControllerClient::wait_steady_state(const geometry_msgs::Wrench& d
   double force_error = 0, torque_error = 0;
   while (ros::ok())
   {
+    if (on_wait_cb)
+      on_wait_cb();
     if (msg_arrived)
     {
       wrench_error(desired_wrench, actual_wrench.wrench, mask, force_error, torque_error);
@@ -238,14 +240,16 @@ void ROSWrenchControllerClient::wait_steady_state(const geometry_msgs::Wrench& d
       ros::Time current_time = ros::Time::now();
       if ((current_time - start_time) >= timeout)
       {
-        throw timeout_exception("ROSWrenchControllerClient::wait_steady_state timeout - force_error:" + std::to_string(force_error) + " torque_error: " + std::to_string(torque_error));
+        throw timeout_exception("ROSWrenchControllerClient::wait_steady_state timeout - force_error:" +
+                                std::to_string(force_error) + " torque_error: " + std::to_string(torque_error));
       }
     }
     ros::spinOnce();
   }
 }
 
-ros::Subscriber ROSWrenchControllerClient::get_measure_subscriber(geometry_msgs::WrenchStamped& actual_wrench, bool& msg_arrived)
+ros::Subscriber ROSWrenchControllerClient::get_measure_subscriber(geometry_msgs::WrenchStamped& actual_wrench,
+                                                                  bool& msg_arrived)
 {
   boost::function<void(const geometry_msgs::WrenchStamped::ConstPtr& msg)> sub_cb =
       boost::bind(wrench_cb, _1, boost::ref(actual_wrench), boost::ref(msg_arrived));
